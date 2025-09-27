@@ -4,8 +4,9 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 :: ===== Config =====
 set "REPO_URL=https://github.com/MiaLui/AiChuyenSau.git"
-set "BRANCH=%~1"
-set "DEST=%~2"
+set "BRANCH=code"
+set "DEST=%~1"
+if not defined DEST set "DEST=AiChuyenSau"
 
 :: ===== Log helpers =====
 set "[I]=[INFO]"
@@ -38,36 +39,41 @@ where git >nul 2>nul || (echo %[E]% Không tìm thấy git. Dừng.& goto :EOF)
 for /f "usebackq tokens=* delims=" %%G in (`git --version`) do set "GIT_VER=%%G"
 echo %[O]% Đã có %GIT_VER%
 
-:: ===== Decide DEST =====
-if not defined DEST set "DEST=AiChuyenSau"
-
-:: ===== Clone if needed (skip if exists) =====
+:: ===== Clone only branch 'code' (quiet) =====
 if exist "%DEST%\.git" (
-  echo %[O]% Phát hiện repo trong "%DEST%".
+  echo %[O]% Phát hiện thư mục "%DEST%".
 ) else if exist "%DEST%" (
   echo %[W]% Thư mục "%DEST%" tồn tại nhưng không phải repo git.
 ) else (
-  echo %[I]% Clone %REPO_URL%  ->  "%DEST%"
-  if defined BRANCH (
-    git clone --recursive -b "%BRANCH%" "%REPO_URL%" "%DEST%" || (echo %[E]% Tạo mới thất bại.& goto :EOF)
-  ) else (
-    git clone --recursive "%REPO_URL%" "%DEST%" || (echo %[E]% Tạo mới thất bại.& goto :EOF)
+  echo %[I]% Tạo mới "%DEST%"...
+  git clone --quiet --single-branch -b "%BRANCH%" "%REPO_URL%" "%DEST%" >nul 2>nul
+  if errorlevel 1 (
+    echo %[E]% Tạo mới thất bại.
+    goto :EOF
   )
   echo %[O]% Hoàn tất.
 )
 
-:: ===== Optional: checkout & pull if BRANCH specified =====
-if defined BRANCH if exist "%DEST%\.git" (
-  echo %[I]% Đồng bộ "%BRANCH%"...
+:: ===== Ensure checked out to 'code' & sync (quiet) =====
+if exist "%DEST%\.git" (
   pushd "%DEST%"
-    git fetch --all --quiet
+    git remote set-url origin "%REPO_URL%" >nul 2>nul
+    git fetch --quiet origin "%BRANCH%" >nul 2>nul
+
     git rev-parse --verify "%BRANCH%" >nul 2>nul
     if errorlevel 1 (
-      git checkout -b "%BRANCH%" "origin/%BRANCH%" || git checkout "%BRANCH%"
+      git checkout -q -b "%BRANCH%" "origin/%BRANCH%" >nul 2>nul || (
+        echo %[E]% Không thể checkout nhánh "%BRANCH%".
+        popd & goto :EOF
+      )
     ) else (
-      git checkout "%BRANCH%" >nul 2>nul
+      git checkout -q "%BRANCH%" >nul 2>nul || (
+        echo %[E]% Không thể chuyển sang nhánh "%BRANCH%".
+        popd & goto :EOF
+      )
+      git branch --set-upstream-to="origin/%BRANCH%" "%BRANCH%" >nul 2>nul
+      git pull --quiet --ff-only >nul 2>nul
     )
-    git pull --ff-only
   popd
 )
 

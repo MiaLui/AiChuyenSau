@@ -5,8 +5,9 @@ set -euo pipefail
 
 REPO_URL="https://github.com/MiaLui/AiChuyenSau.git"
 WEB_URL="https://ai.studio/apps/drive/1-eIAQJpWJrzTZvuDDigJoQ4H5sUbDDC_"
-BRANCH="${1-}" 
-DEST="${2-}" 
+TARGET_BRANCH="code"
+BRANCH="${1-}"
+DEST="${2-}"
 
 info() { printf "\033[1;34m[INFO]\033[0m %s\n" "$*"; }
 ok()   { printf "\033[1;32m[ OK ]\033[0m %s\n" "$*"; }
@@ -46,24 +47,23 @@ fi
 
 if [[ -d "${DEST}" ]]; then
   ok "Phát hiện thư mục '${DEST}'"
-  if [[ -d "${DEST}/.git" && -n "${BRANCH}" ]]; then
-    info "Đang đồng bộ '${BRANCH}'…"
-    git -C "${DEST}" fetch --all --quiet || true
-    if ! git -C "${DEST}" rev-parse --verify "${BRANCH}" >/dev/null 2>&1; then
-      git -C "${DEST}" checkout -b "${BRANCH}" "origin/${BRANCH}" || git -C "${DEST}" checkout "${BRANCH}" || true
-    else
-      git -C "${DEST}" checkout "${BRANCH}" >/dev/null 2>&1 || true
-    fi
-    git -C "${DEST}" pull --ff-only || true
-  fi
 else
-  info "Tạo mới ${DEST}"
-  if [[ -n "${BRANCH}" ]]; then
-    git clone --recursive -b "${BRANCH}" "${REPO_URL}" "${DEST}"
-  else
-    git clone --recursive "${REPO_URL}" "${DEST}"
-  fi
+  info "Tạo mới: ${REPO_URL} → ${DEST}"
+  git clone --recursive --quiet -b "${TARGET_BRANCH}" "${REPO_URL}" "${DEST}" 1>/dev/null 2>&1 \
+    || git clone --recursive --quiet "${REPO_URL}" "${DEST}" 1>/dev/null 2>&1
   ok "Hoàn tất."
+fi
+
+if [[ -d "${DEST}/.git" ]]; then
+  info "Đồng bộ '${TARGET_BRANCH}'…"
+  git -C "${DEST}" fetch --all --quiet || true
+  if ! git -C "${DEST}" rev-parse --verify "${TARGET_BRANCH}" >/dev/null 2>&1; then
+    git -C "${DEST}" checkout -b "${TARGET_BRANCH}" "origin/${TARGET_BRANCH}" >/dev/null 2>&1 \
+      || git -C "${DEST}" checkout "${TARGET_BRANCH}" >/dev/null 2>&1 || true
+  else
+    git -C "${DEST}" checkout "${TARGET_BRANCH}" >/dev/null 2>&1 || true
+  fi
+  git -C "${DEST}" pull --ff-only --quiet || true
 fi
 
 cd "${DEST}"
