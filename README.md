@@ -1,2 +1,0 @@
-# AiChuyenSau
-vượt bộ chặn
